@@ -68,7 +68,7 @@ function StudyPage() {
           return token ? { Authorization: `Bearer ${token}` } : {};
         },
         prepareSendMessagesRequest: ({ messages, headers, body }) => ({
-          headers,
+          ...(headers ? { headers } : {}),
           body: { ...body, messages: messages.filter((m) => m.id !== "welcome") },
         }),
       }),
@@ -97,9 +97,15 @@ function StudyPage() {
   async function startOver() {
     if (!confirm("Start a fresh conversation? Your current chat will be cleared.")) return;
     const { data } = await supabase.auth.getUser();
-    if (!data.user) return toast.error("Please sign in again.");
+    if (!data.user) {
+      toast.error("Please sign in again.");
+      return;
+    }
     const { error } = await supabase.from("chat_messages").delete().eq("user_id", data.user.id);
-    if (error) return toast.error("Couldn't clear the chat.");
+    if (error) {
+      toast.error("Couldn't clear the chat.");
+      return;
+    }
     setMessages([WELCOME]);
   }
 
