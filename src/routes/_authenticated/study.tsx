@@ -47,10 +47,35 @@ export const Route = createFileRoute("/_authenticated/study")({
 
 const WELCOME: UIMessage = { id: "welcome", role: "assistant", parts: [{ type: "text", text: WELCOME_TEXT }] };
 
-const STARTERS = [
-  "I'm a complete beginner — what is cloud computing?",
-  "Help me make a 4-week plan for AZ-900",
-  "Give me 5 practice questions on Azure storage",
+const STARTER_GROUPS: { label: string; prompts: string[] }[] = [
+  {
+    label: "Learn",
+    prompts: [
+      "I'm a complete beginner — what is cloud computing?",
+      "Explain Azure virtual machines with an everyday example",
+    ],
+  },
+  {
+    label: "Practice",
+    prompts: [
+      "Quiz me with 5 AZ-900 questions and explain each answer",
+      "Give me a hands-on exercise for Azure storage (free tier only)",
+    ],
+  },
+  {
+    label: "Plan",
+    prompts: [
+      "Build me a 4-week AZ-900 study plan, 30 minutes a day",
+      "Which certification should I start with, and why?",
+    ],
+  },
+  {
+    label: "Revise",
+    prompts: [
+      "Give me revision notes on Azure networking basics",
+      "Test me on everything we've covered so far",
+    ],
+  },
 ];
 
 function StudyPage() {
@@ -166,11 +191,26 @@ function StudyPage() {
             </Message>
           )}
           {messages.length === 1 && (
-            <div className="flex flex-wrap gap-2">
-              {STARTERS.map((s) => (
-                <Button key={s} variant="outline" size="sm" className="rounded-full bg-card" onClick={() => send(s)}>
-                  {s}
-                </Button>
+            <div className="space-y-3">
+              {STARTER_GROUPS.map((g) => (
+                <div key={g.label}>
+                  <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    {g.label}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {g.prompts.map((s) => (
+                      <Button
+                        key={s}
+                        variant="outline"
+                        size="sm"
+                        className="rounded-full bg-card"
+                        onClick={() => send(s)}
+                      >
+                        {s}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
           )}
