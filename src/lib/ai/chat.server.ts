@@ -12,8 +12,9 @@ import { TUTOR_INSTRUCTIONS } from "./tutor-prompt";
 const MODEL = "openai/gpt-6-astra";
 
 function userClient(token: string) {
-  const url = process.env.SUPABASE_URL!;
-  const key = process.env.SUPABASE_PUBLISHABLE_KEY!;
+  const url = process.env['SUPABASE_URL'];
+  const key = process.env['SUPABASE_PUBLISHABLE_KEY'];
+  if (!url || !key) throw new Error("Sign-in is not configured.");
   return createClient<Database>(url, key, {
     global: {
       headers: { Authorization: `Bearer ${token}` },
@@ -50,7 +51,7 @@ export async function handleChat(request: Request): Promise<Response> {
   }
 
   const last = messages[messages.length - 1];
-  if (last.role === "user") {
+  if (last?.role === "user") {
     const { error } = await supabase
       .from("chat_messages")
       .upsert(
@@ -60,7 +61,7 @@ export async function handleChat(request: Request): Promise<Response> {
     if (error) console.error("Failed to save user message", error);
   }
 
-  const apiKey = process.env.LOVABLE_API_KEY;
+  const apiKey = process.env['LOVABLE_API_KEY'];
   if (!apiKey) return json(500, "AI is not configured.");
 
   const runIdFetch = createLovableAiGatewayRunIdFetch(getLovableAiGatewayRunId(request));
