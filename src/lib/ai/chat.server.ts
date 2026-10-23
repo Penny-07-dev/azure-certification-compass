@@ -34,12 +34,15 @@ const json = (status: number, error: string) =>
 export async function handleChat(request: Request): Promise<Response> {
   const auth = request.headers.get("authorization");
   const token = auth?.startsWith("Bearer ") ? auth.slice(7) : "";
-  if (!token || token.split(".").length !== 3) return json(401, "Please sign in again.");
-
-  const supabase = userClient(token);
-  const { data: claims, error: claimsError } = await supabase.auth.getClaims(token);
-  const userId = claims?.claims?.sub;
-  if (claimsError || !userId) return json(401, "Please sign in again.");
+  // Visitors never read or write account history. A supplied bearer must still validate.
+  if (auth && (!token || token.split(".").length !== 3)) return json(401, "Please sign in again.");
+  const supabase = token ? userClient(token) : undefined;
+  let userId: string | undefined;
+  if (supabase) {
+    const { data: claims, error: claimsError } = await supabase.auth.getClaims(token);
+    userId = claims?.claims?.sub;
+    if (claimsError || !userId) return json(401, "Please sign in again.");
+  }
 
   let messages: UIMessage[];
   try {
@@ -51,7 +54,7 @@ export async function handleChat(request: Request): Promise<Response> {
   }
 
   const last = messages[messages.length - 1];
-  if (last?.role === "user") {
+  if (supabase && userId && last?.role === "user") {
     const { error } = await supabase
       .from("chat_messages")
       .upsert(
@@ -93,7 +96,7 @@ export async function handleChat(request: Request): Promise<Response> {
     generateMessageId: () => crypto.randomUUID(),
     sendReasoning: true,
     onFinish: async ({ responseMessage }) => {
-      if (!responseMessage?.parts?.length) return;
+      if (!supabase || !userId || !responseMessage?.parts?.length) return;
       const { error } = await supabase
         .from("chat_messages")
         .upsert(
