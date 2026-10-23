@@ -8,3 +8,5 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+- Generate a unique server-side assistant message ID for each chat response so persisted replies cannot overwrite earlier replies.
