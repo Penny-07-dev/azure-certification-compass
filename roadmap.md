@@ -1,4 +1,5 @@
 # Azure Study Buddy completion
+- [ ] Open study chat to visitors without sign-in while keeping account history private, then test guest answers and refresh.
 - [x] Correct the remaining chat compatibility errors; current build reports OK.
 - [x] Run the existing routing tests and check the front page and sign-in form.
 - [x] Fix published-build blank screen on /study (removed mermaid/graphlib diagram add-on).
