@@ -176,7 +176,7 @@ function Landing() {
           <RouteIcon className="mx-auto h-8 w-8 text-primary" />
           <h2 className="mt-4 text-2xl font-bold md:text-3xl">Your Azure journey starts with one question</h2>
           <p className="mx-auto mt-3 max-w-md text-muted-foreground">
-            Sign in, tell your buddy where you're starting from, and get a plan you can follow today.
+            No sign-in needed — tell your buddy where you're starting from and get a plan you can follow today.
           </p>
           <Button asChild size="lg" className="mt-6 bg-gradient-primary shadow-soft">
             <Link to="/study">Meet your study buddy</Link>

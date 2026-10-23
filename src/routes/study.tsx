@@ -1,9 +1,9 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { LogOut, RotateCcw } from "lucide-react";
+import { LogOut, RotateCcw, LogIn } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,7 +23,7 @@ import { Shimmer } from "@/components/ai-elements/shimmer";
 import { WELCOME_TEXT } from "@/lib/ai/tutor-prompt";
 import buddy from "@/assets/buddy.png";
 
-export const Route = createFileRoute("/_authenticated/study")({
+export const Route = createFileRoute("/study")({
   head: () => ({
     meta: [
       { title: "Study session — Azure Study Buddy" },
@@ -34,14 +34,6 @@ export const Route = createFileRoute("/_authenticated/study")({
       { name: "twitter:card", content: "summary" },
     ],
   }),
-  loader: async () => {
-    const { data, error } = await supabase
-      .from("chat_messages")
-      .select("message")
-      .order("created_at", { ascending: true });
-    if (error) throw error;
-    return { messages: (data ?? []).map((r) => r.message as unknown as UIMessage) };
-  },
   component: StudyPage,
 });
 
@@ -78,9 +70,37 @@ const STARTER_GROUPS: { label: string; prompts: string[] }[] = [
   },
 ];
 
+const GUEST_STORAGE_KEY = "azure-study-buddy-guest-chat";
+
 function StudyPage() {
-  const { messages: saved } = Route.useLoaderData();
+  const [initial, setInitial] = useState<{ messages: UIMessage[]; userId?: string }>();
+  useEffect(() => {
+    let active = true;
+    async function load() {
+      const { data } = await supabase.auth.getUser();
+      if (data.user) {
+        const { data: rows, error } = await supabase.from("chat_messages").select("message").eq("user_id", data.user.id).order("created_at", { ascending: true });
+        if (error) toast.error("Couldn't load your saved conversation.");
+        if (active) setInitial({ messages: (rows ?? []).map((r) => r.message as unknown as UIMessage), userId: data.user.id });
+      } else {
+        let messages: UIMessage[] = [];
+        try {
+          const stored = JSON.parse(sessionStorage.getItem(GUEST_STORAGE_KEY) ?? "[]");
+          if (Array.isArray(stored)) messages = stored.filter((m) => m && typeof m.id === "string" && Array.isArray(m.parts) && (m.role === "user" || m.role === "assistant"));
+        } catch { /* A fresh chat remains available if browser storage is unavailable. */ }
+        if (active) setInitial({ messages });
+      }
+    }
+    void load();
+    return () => { active = false; };
+  }, []);
+  if (!initial) return <main className="flex h-dvh items-center justify-center bg-sky text-muted-foreground">Opening your study buddy…</main>;
+  return <StudyChat saved={initial.messages} userId={initial.userId} />;
+}
+
+function StudyChat({ saved, userId }: { saved: UIMessage[]; userId?: string }) {
   const navigate = useNavigate();
+  const { queryClient } = Route.useRouteContext();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const transport = useMemo(
@@ -107,6 +127,13 @@ function StudyPage() {
     onError: (err) => toast.error(err.message || "Couldn't reach your study buddy. Please try again."),
   });
 
+  useEffect(() => {
+    if (userId) return;
+    try {
+      sessionStorage.setItem(GUEST_STORAGE_KEY, JSON.stringify(messages.filter((m) => m.id !== "welcome")));
+    } catch { /* Chat can still continue without browser storage. */ }
+  }, [messages, userId]);
+
   const busy = status === "submitted" || status === "streaming";
 
   useEffect(() => {
@@ -121,20 +148,21 @@ function StudyPage() {
 
   async function startOver() {
     if (!confirm("Start a fresh conversation? Your current chat will be cleared.")) return;
-    const { data } = await supabase.auth.getUser();
-    if (!data.user) {
-      toast.error("Please sign in again.");
-      return;
-    }
-    const { error } = await supabase.from("chat_messages").delete().eq("user_id", data.user.id);
-    if (error) {
-      toast.error("Couldn't clear the chat.");
-      return;
+    if (userId) {
+      const { error } = await supabase.from("chat_messages").delete().eq("user_id", userId);
+      if (error) {
+        toast.error("Couldn't clear the chat.");
+        return;
+      }
+    } else {
+      try { sessionStorage.removeItem(GUEST_STORAGE_KEY); } catch { /* Storage may be disabled. */ }
     }
     setMessages([WELCOME]);
   }
 
   async function signOut() {
+    await queryClient.cancelQueries();
+    queryClient.clear();
     await supabase.auth.signOut();
     navigate({ to: "/auth", replace: true });
   }
@@ -145,17 +173,19 @@ function StudyPage() {
   return (
     <div className="flex h-dvh flex-col bg-sky">
       <header className="flex items-center justify-between border-b bg-card/70 px-4 py-3 backdrop-blur">
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           <img src={buddy} alt="" width={816} height={816} className="h-9 w-9 object-cover object-top" />
-          <span className="font-display text-lg font-semibold">Azure Study Buddy</span>
+          <span className="font-display text-base font-semibold sm:text-lg">Azure Study Buddy</span>
         </div>
         <div className="flex gap-1">
           <Button variant="ghost" size="sm" onClick={startOver} disabled={busy}>
             <RotateCcw /> Start over
           </Button>
-          <Button variant="ghost" size="sm" onClick={signOut}>
-            <LogOut /> Sign out
-          </Button>
+          {userId ? (
+            <Button variant="ghost" size="sm" onClick={signOut}><LogOut /><span className="hidden sm:inline">Sign out</span></Button>
+          ) : (
+            <Button asChild variant="ghost" size="sm"><Link to="/auth"><LogIn /><span className="hidden sm:inline">Sign in</span></Link></Button>
+          )}
         </div>
       </header>
 
@@ -203,7 +233,7 @@ function StudyPage() {
                         key={s}
                         variant="outline"
                         size="sm"
-                        className="rounded-full bg-card"
+                        className="h-auto max-w-full whitespace-normal rounded-full bg-card text-left"
                         onClick={() => send(s)}
                       >
                         {s}

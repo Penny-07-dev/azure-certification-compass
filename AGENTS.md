@@ -10,3 +10,4 @@
 <!-- LOVABLE:END -->
 
 - Generate a unique server-side assistant message ID for each chat response so persisted replies cannot overwrite earlier replies.
+- Keep /study public; guest chats use tab-scoped browser storage and never access account history, while authenticated persistence remains user-scoped to protect private conversations.
