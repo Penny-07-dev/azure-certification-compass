@@ -90,6 +90,7 @@ export async function handleChat(request: Request): Promise<Response> {
 
   const response = result.toUIMessageStreamResponse({
     originalMessages: messages,
+    generateMessageId: () => crypto.randomUUID(),
     sendReasoning: true,
     onFinish: async ({ responseMessage }) => {
       if (!responseMessage?.parts?.length) return;
